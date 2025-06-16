@@ -322,8 +322,8 @@ def predicciones(liga):
             away = match['awayTeam']['name']
             fecha = match['utcDate']
             # ✅ Filtrar solo partidos de esta semana
-            if not this_week(fecha):
-                continue
+            #if not this_week(fecha):
+            #    continue
 
             equipo_local = buscar_equipo(home, equipos_dict)
             equipo_visitante = buscar_equipo(away, equipos_dict)
