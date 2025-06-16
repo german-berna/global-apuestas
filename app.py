@@ -274,19 +274,21 @@ LIGAS = {
     }
 }
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def this_week(fecha_iso):
     try:
         date = datetime.fromisoformat(fecha_iso.replace("Z", "+00:00"))
-        today = datetime.utcnow()
-        begining_week = today - timedelta(days=today.weekday())  # Lunes
-        ending_week = begining_week + timedelta(days=6, hours=23, minutes=59, seconds=59)  # Domingo
+        today = datetime.now(timezone.utc)
+
+        begining_week = today - timedelta(days=today.weekday())  # lunes
+        ending_week = begining_week + timedelta(days=6, hours=23, minutes=59, seconds=59)  # domingo
 
         return begining_week <= date <= ending_week
     except Exception as e:
         print("Error al convertir fecha:", e)
         return False
+
 
 
 @app.route("/predicciones/<liga>")
