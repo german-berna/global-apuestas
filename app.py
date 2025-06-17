@@ -110,6 +110,10 @@ def normalizar_nombre_equipo(nombre):
         "wolves": ["wolves", "wolverhampton wanderers", "wolverhampton wanderers fc"],
 
         # LaLiga
+        "athletic": ["athletic club", "athletic bilbao"],
+        "celta vigo": ["celta vigo", "rc celta de vigo"],
+        "sevilla": ["sevilla", "sevilla fc"],
+        "valencia": ["valencia", "valencia cf"],
         "barcelona": ["fc barcelona", "barcelona"],
         "atletico madrid": ["atletico de madrid", "club atletico de madrid", "atletico madrid"],
         "real madrid": ["real madrid"],
@@ -118,7 +122,28 @@ def normalizar_nombre_equipo(nombre):
         "las palmas": ["las palmas"],
         "betis": ["real betis", "betis"],
         "alaves": ["deportivo alaves", "alaves"],
-        "espanyol": ["espanyol"]
+        "espanyol": ["espanyol"],
+
+        # ligue1
+        "paris sg": ["paris sg", "paris saint-germain", "psg"],
+        "marseille": ["marseille", "olympique marseille"],
+        "lyon": ["lyon", "olympique lyonnais"],
+        "monaco": ["monaco", "as monaco"],
+        "lille": ["lille", "losc lille"],
+        "rennes": ["rennes", "stade rennais", "stade rennais fc"],
+        "nantes": ["nantes", "fc nantes"],
+        "nice": ["nice", "ogc nice"],
+        "toulouse": ["toulouse", "toulouse fc"],
+        "montpellier": ["montpellier", "montpellier hsc"],
+        "reims": ["reims", "stadede reims", "stade de reims"],
+        "strasbourg": ["strasbourg", "rc strasbourg"],
+        "brest": ["brest", "stadebrestois", "stadé brestois"],
+        "lens": ["lens", "rc lens"],
+        "le havre": ["le havre", "le havre ac"],
+        "angers": ["angers", "angers sco"],
+        "auxerre": ["auxerre", "aj auxerre"],
+        "saint-etienne": ["saint-etienne", "saint etienne", "as saint-etienne"]
+
     }
 
     # Crear un dict de variantes normalizadas → clave oficial
@@ -192,12 +217,25 @@ def obtener_estadisticas_avanzadas(fbref_id):
     soup = BeautifulSoup(response.content, "html.parser")
 
     def parse_table(table_id, columns):
+        # Buscar directamente en el HTML
         table = soup.find("table", id=table_id)
+        
+        if not table:
+            # Buscar en los comentarios si no se encontró directamente
+            comments = soup.find_all(string=lambda text: isinstance(text, Comment))
+            for comment in comments:
+                if table_id in comment:
+                    comment_soup = BeautifulSoup(comment, "html.parser")
+                    table = comment_soup.find("table", id=table_id)
+                    if table:
+                        break
+
         if not table:
             print(f"❌ No se encontró la tabla: {table_id}")
             return {}
         data = {}
-        for row in table.tbody.find_all("tr"):
+        rows = table.find("tbody").find_all("tr")
+        for row in rows:
             if row.get("class") == ["thead"]:
                 continue
             team = row.find("th").text.strip()
