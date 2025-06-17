@@ -285,33 +285,14 @@ def parse_number(val):
         return 0.0
 
 def obtener_partidos(competition_id):
-    api_key = get_valid_scraperapi_key()
-    if not api_key:
-        print("❌ No hay API keys de ScraperAPI disponibles.")
+    API_KEY = '8f766e7e5acb40b78ab66e96222e7755'
+    url = f'https://api.football-data.org/v4/competitions/{competition_id}/matches?status=SCHEDULED'
+    headers = {'X-Auth-Token': API_KEY}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        print("Error al consultar la API:", response.status_code, response.text)
         return []
-
-    football_data_api_key = '8f766e7e5acb40b78ab66e96222e7755'
-    target_url = f'https://api.football-data.org/v4/competitions/{competition_id}/matches?status=SCHEDULED'
-
-    # Pasar header de autenticación como parte del proxy request
-    headers = {
-        'X-Auth-Token': football_data_api_key,
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json'
-    }
-
-    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}"
-
-    try:
-        response = requests.get(proxy_url, headers=headers)
-        if response.status_code != 200:
-            print("❌ Error al consultar Football-Data vía ScraperAPI:", response.status_code, response.text)
-            return []
-        return response.json().get('matches', [])
-    except Exception as e:
-        print(f"❌ Excepción al hacer la petición vía ScraperAPI: {e}")
-        return []
-
+    return response.json().get('matches', [])
 
 def buscar_equipo(nombre, equipos_dict):
     nombre_norm = normalizar_nombre_equipo(nombre)
