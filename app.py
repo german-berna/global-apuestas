@@ -17,6 +17,36 @@ import re
 import unicodedata
 import difflib
 
+scraperapi_keys = [
+    "b3c1a3296505fb10281d9726aa24dc64",
+    "27b74be51de456a4a88d30ac2c42b434",
+    "e1b8135327bfc26dd0d832f4d155fed4",
+    "fddb1d94a1fa065d6dd9b6997c8cb3c8",
+    "231233de113069264752787699504aaf",
+    "6585c7b813299af1ce71e54ce9776b84",
+    "ad218ecf00d9b705804e71cf6588ab8a"
+]
+
+def check_scraperapi_credits(api_key):
+    url = f"https://api.scraperapi.com/account?api_key={api_key}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            limit = data.get("requestLimit", 0)
+            used = data.get("requestCount", 0)
+            return limit - used
+    except Exception as e:
+        print(f"❌ Error verificando créditos de {api_key}: {e}")
+    return 0
+
+def get_valid_scraperapi_key():
+    for key in scraperapi_keys:
+        if check_scraperapi_credits(key) > 5:  # Puedes ajustar el umbral
+            return key
+    return None  # Si ninguna sirve
+
+
 def normalizar_nombre_equipo(nombre):
     nombre_original = nombre.strip()
     nombre = nombre.lower()
@@ -151,7 +181,12 @@ def obtener_estadisticas_avanzadas(fbref_id):
         "Referer": "https://www.google.com/"
     }
 
-    proxy_url = f"http://api.scraperapi.com?api_key=ad218ecf00d9b705804e71cf6588ab8a&url=https://fbref.com/en/comps/{fbref_id}/stats"
+    api_key = get_valid_scraperapi_key()
+    if not api_key:
+        print("❌ No hay API keys de ScraperAPI disponibles.")
+        return []
+
+    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url=https://fbref.com/en/comps/{fbref_id}/stats"
 
     response = requests.get(proxy_url, headers=headers)
     soup = BeautifulSoup(response.content, "html.parser")
