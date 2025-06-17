@@ -436,9 +436,11 @@ def predicciones(liga):
                 print(f"Error procesando partido {home} vs {away}: {e}")
                 continue
 
-    # ✅ Guardar en caché solo esa liga
-    cache_por_liga[liga] = resultados
-    last_update_por_liga[liga] = now
+    # ✅ Guardar en caché solo si hay resultados
+    if resultados:
+        cache_por_liga[liga] = resultados
+        last_update_por_liga[liga] = now
+
     return jsonify(resultados)
 
 
