@@ -390,7 +390,7 @@ def predicciones(liga):
     if (
         liga in cache_por_liga
         and liga in last_update_por_liga
-        and now - last_update_por_liga[liga] < 3600
+        and now - last_update_por_liga[liga] < 43200  # 12 horas = 12 * 3600
     ):
         return jsonify(cache_por_liga[liga])
 
