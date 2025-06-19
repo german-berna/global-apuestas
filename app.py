@@ -8,6 +8,7 @@ from math import exp
 import httpx
 from flask import Flask, jsonify
 from flask_cors import CORS
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 CORS(app)
@@ -229,10 +230,9 @@ def obtener_estadisticas_avanzadas(fbref_id):
                     table = comment_soup.find("table", id=table_id)
                     if table:
                         break
-
         if not table:
-            print(f"❌ No se encontró la tabla: {table_id}")
-            return {}
+            return table_id, {}
+
         data = {}
         rows = table.find("tbody").find_all("tr")
         for row in rows:
@@ -245,14 +245,28 @@ def obtener_estadisticas_avanzadas(fbref_id):
                 if stat in columns:
                     stats[stat] = cell.text.strip()
             data[team] = stats
-        return data
+        return table_id, data
 
-    standard = parse_table("stats_squads_standard_for", ["possession", "goals", "xg", "xg_assist", "npxg", "cards_yellow", "cards_red"])
-    passing = parse_table("stats_squads_passing_for", ["passes_completed"])
-    misc = parse_table("stats_squads_possession_for", ["touches"])
-    shooting = parse_table("stats_squads_shooting_for", ["shots_on_target"])
-    keepers_adv = parse_table("stats_squads_keeper_adv_for", ["gk_psxg"])
-    keepers = parse_table("stats_squads_keeper_for", ["gk_goals_against", "gk_clean_sheets_pct"])
+    tables = [
+        ("stats_squads_standard_for", ["possession", "goals", "xg", "xg_assist", "npxg", "cards_yellow", "cards_red"]),
+        ("stats_squads_passing_for", ["passes_completed"]),
+        ("stats_squads_possession_for", ["touches"]),
+        ("stats_squads_shooting_for", ["shots_on_target"]),
+        ("stats_squads_keeper_adv_for", ["gk_psxg"]),
+        ("stats_squads_keeper_for", ["gk_goals_against", "gk_clean_sheets_pct"]),
+    ]
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        for table_id, data in executor.map(lambda args: parse_table(*args), tables):
+            results[table_id] = data
+
+    standard = results["stats_squads_standard_for"]
+    passing = results["stats_squads_passing_for"]
+    misc = results["stats_squads_possession_for"]
+    shooting = results["stats_squads_shooting_for"]
+    keepers_adv = results["stats_squads_keeper_adv_for"]
+    keepers = results["stats_squads_keeper_for"]
 
     equipos = {}
     for team in standard:
