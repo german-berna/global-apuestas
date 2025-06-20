@@ -60,6 +60,26 @@ def normalizar_nombre_equipo(nombre):
     nombre_limpio = re.sub(r'\b(fc|ac|ss|us|as|ud|cd|club|calcio|cfc|bc|milano|s\.a\.d\.|real|atletico|de|balompie|cf|rcd|1909|1913|1919|1907)\b', '', nombre)
     nombre_limpio = re.sub(r'\s+', ' ', nombre_limpio).strip()
 
+    # Casos especiales conocidos
+    if "barcelona" in nombre_limpio and "espanyol" in nombre_limpio:
+        return "espanyol"
+    if "barcelona" in nombre_limpio:
+        return "barcelona"
+    if "atletico" in nombre_limpio and "madrid" in nombre_limpio:
+        return "atletico madrid"
+    if "real madrid" in nombre_limpio:
+        return "real madrid"
+    if "real sociedad" in nombre_limpio:
+        return "real sociedad"
+    if "rayo vallecano" in nombre_limpio:
+        return "rayo vallecano"
+    if "las palmas" in nombre_limpio:
+        return "las palmas"
+    if "real betis" in nombre_limpio:
+        return "betis"
+    if "deportivo alaves" in nombre_limpio or "alaves" in nombre_limpio:
+        return "alaves"
+
     # Diccionario de alias (normalizados)
     alias = {
         "inter": ["fc internazionale milano", "inter milan", "inter"],
@@ -109,6 +129,9 @@ def normalizar_nombre_equipo(nombre):
         "tottenham": ["tottenham", "tottenham hotspur", "tottenham hotspur fc"],
         "west ham": ["west ham", "west ham united", "west ham united fc"],
         "wolves": ["wolves", "wolverhampton wanderers", "wolverhampton wanderers fc"],
+        "sunderland": ["sunderland", "sunderland afc"],
+        "burnley": ["burnley", "burnley fc"],
+        "leeds united": ["leeds", "leeds united", "leeds united fc"],
 
         # LaLiga
         "athletic": ["athletic club", "athletic bilbao"],
@@ -118,12 +141,12 @@ def normalizar_nombre_equipo(nombre):
         "barcelona": ["fc barcelona", "barcelona"],
         "atletico madrid": ["atletico de madrid", "club atletico de madrid", "atletico madrid"],
         "real madrid": ["real madrid"],
-        "real sociedad": ["real sociedad"],
+        "real sociedad": ["real sociedad", "real sociedad de futbol"],
         "rayo vallecano": ["rayo vallecano"],
         "las palmas": ["las palmas"],
         "betis": ["real betis", "betis"],
         "alaves": ["deportivo alaves", "alaves"],
-        "espanyol": ["espanyol"],
+        "espanyol": ["espanyol", "rcd espanyol", "rcd espanyol de barcelona"],
 
         # ligue1
         "paris sg": ["paris sg", "paris saint-germain", "psg"],
