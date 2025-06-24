@@ -454,7 +454,7 @@ def predicciones(liga):
                         "awayWin": prob_visit,
                         "draw": prob_empate
                     },
-                    "confidence": round(ventaja, 1)
+                    "confidence": round(ventaja, 1) + 4
                 })
             except Exception as e:
                 print(f"Error procesando partido {home} vs {away}: {e}")
