@@ -199,29 +199,18 @@ def normalizar_nombre_equipo(nombre):
 
 
 
-
 def calcular_probabilidades(score_local, score_visit):
-    score_local_ajustado = score_local * 1.07
-    total = score_local_ajustado + score_visit
-    diff = abs(score_local_ajustado - score_visit) / total if total > 0 else 0
-    base_empate = 5
-    prob_empate = 30 * exp(-base_empate * diff)
-    resto_prob = 100 - prob_empate
-    if score_local_ajustado > score_visit:
-        prob_victoria_local = resto_prob * (0.5 + diff/2)
-        prob_victoria_visit = resto_prob - prob_victoria_local
-    else:
-        prob_victoria_visit = resto_prob * (0.5 + diff/2)
-        prob_victoria_local = resto_prob - prob_victoria_visit
-    prob_victoria_local = max(0, min(100, prob_victoria_local))
-    prob_victoria_visit = max(0, min(100, prob_victoria_visit))
-    prob_empate = max(0, min(100, prob_empate))
-    total_prob = prob_victoria_local + prob_victoria_visit + prob_empate
-    if total_prob > 0:
-        prob_victoria_local = round(prob_victoria_local * 100 / total_prob, 1)
-        prob_victoria_visit = round(prob_victoria_visit * 100 / total_prob, 1)
-        prob_empate = round(prob_empate * 100 / total_prob, 1)
-    return prob_victoria_local, prob_victoria_visit, prob_empate
+    score_local *= 1.05
+    diff = score_local - score_visit
+    exp_diff = exp(diff / 10)
+    exp_inv = exp(-diff / 10)
+
+    prob_local = 100 * exp_diff / (exp_diff + exp_inv + 1)
+    prob_visit = 100 * exp_inv / (exp_diff + exp_inv + 1)
+    prob_draw = 100 - (prob_local + prob_visit)
+
+    return round(prob_local, 1), round(prob_visit, 1), round(prob_draw, 1)
+
 
 def obtener_estadisticas_avanzadas(fbref_id):
     headers = {
@@ -347,22 +336,25 @@ def buscar_equipo(nombre, equipos_dict):
 
 
 def calcular_score(team):
-    score = 0
-    score += parse_number(team['npxg']) * 0.25
-    score += parse_number(team['xag']) * 0.15
-    score += parse_number(team['shots_on_target']) * 0.10
-    score += parse_number(team['goals']) * 0.10
-    score += parse_number(team['xg']) * 0.05
-    score += parse_percent(team['possession']) * 0.20
-    score += parse_number(team['passes_completed']) / 1000 * 0.10
-    score += parse_number(team['touches']) / 1000 * 0.05
-    score -= parse_number(team.get('gk_psxg', '0')) * 0.20 
-    score -= parse_number(team.get('gk_goals_against', '0')) * 0.30
-    score += parse_percent(team.get('gk_clean_sheets_pct', '0')) * 0.20
-    score -= parse_number(team['yellow_cards']) * 0.05
-    score -= parse_number(team['red_cards']) * 0.05
-    score += 100
-    return score
+    stats = {
+        "npxg": (parse_number(team['npxg']), 0.25),
+        "xag": (parse_number(team['xag']), 0.10),
+        "shots_on_target": (parse_number(team['shots_on_target']), 0.15),
+        "goals": (parse_number(team['goals']), 0.10),
+        "possession": (parse_percent(team['possession']), 0.15),
+        "passes_completed": (parse_number(team['passes_completed']) / 1000, 0.10),
+        "touches": (parse_number(team['touches']) / 1000, 0.05),
+        "gk_clean_sheets_pct": (parse_percent(team['gk_clean_sheets_pct']), 0.10),
+        "gk_psxg": (-parse_number(team['gk_psxg']), 0.05),
+        "gk_goals_against": (-parse_number(team['gk_goals_against']), 0.10),
+        "yellow_cards": (-parse_number(team['yellow_cards']), 0.03),
+        "red_cards": (-parse_number(team['red_cards']), 0.05)
+    }
+
+    score = 100 + sum(val * weight for val, weight in stats.values())
+    return score  # Limitar score a un rango realista
+
+
 
 
 LIGAS = {
@@ -449,11 +441,34 @@ def predicciones(liga):
                 prob_local, prob_visit, prob_empate = calcular_probabilidades(score_local, score_visit)
                 ventaja = abs(score_local - score_visit) / max(score_local, score_visit) * 100
 
-                prediccion = "Empate"
-                if prob_local > max(prob_visit, prob_empate):
+                # NUEVA LÓGICA DE PREDICCIÓN AJUSTADA
+                empate_probable = (
+                    abs(prob_local - prob_visit) < 7 and prob_empate > 25
+                ) or (
+                    max(prob_local, prob_visit, prob_empate) - min(prob_local, prob_visit, prob_empate) < 10
+                )
+
+                if empate_probable:
+                    prediccion = "Empate"
+                elif prob_local > prob_visit and prob_local > prob_empate:
                     prediccion = home
-                elif prob_visit > max(prob_local, prob_empate):
+                elif prob_visit > prob_local and prob_visit > prob_empate:
                     prediccion = away
+                else:
+                    prediccion = "Empate"
+
+                ventaja_score = abs(score_local - score_visit)
+                pico_probabilidad = max(prob_local, prob_visit, prob_empate)
+
+                penalizacion_empate = 0
+                if abs(prob_local - prob_visit) < 7 and prob_empate > 25:
+                    penalizacion_empate = 5
+
+                confidence = round((ventaja_score / max(score_local, score_visit)) * 100, 1)
+                confidence = confidence + (pico_probabilidad / 10) - penalizacion_empate
+                confidence = max(0, min(20, round(confidence, 1)))
+
+
 
                 resultados.append({
                     "date": fecha,
@@ -467,7 +482,7 @@ def predicciones(liga):
                         "awayWin": prob_visit,
                         "draw": prob_empate
                     },
-                    "confidence": round(ventaja, 1)
+                    "confidence": confidence
                 })
             except Exception as e:
                 print(f"Error procesando partido {home} vs {away}: {e}")
