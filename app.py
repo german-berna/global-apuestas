@@ -14,10 +14,16 @@ app = Flask(__name__)
 CORS(app)
 cache_por_liga = {}
 last_update_por_liga = {}
-import re
-import unicodedata
-import difflib
+resultados_globales = []
 
+ODDS_API_KEY = "e95928872759eb91f6e4e02410315072"
+
+sport_key_map = {
+    "laliga": "soccer_spain_la_liga",
+    "premier": "soccer_epl",
+    "ligue1": "soccer_france_ligue_one",
+    "seriea": "soccer_italy_serie_a"
+}
 scraperapi_keys = [
     "b3c1a3296505fb10281d9726aa24dc64",
     "27b74be51de456a4a88d30ac2c42b434",
@@ -197,7 +203,31 @@ def normalizar_nombre_equipo(nombre):
     return nombre_limpio
 
 
-
+def obtener_odds(liga_sport_key):
+    url = f"https://api.the-odds-api.com/v4/sports/{liga_sport_key}/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={ODDS_API_KEY}"
+    try:
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            print("Error al obtener cuotas:", resp.status_code)
+            return {}
+        data = resp.json()
+        odds_dict = {}
+        for event in data:
+            home = normalizar_nombre_equipo(event.get("home_team", ""))
+            away = normalizar_nombre_equipo(event.get("away_team", ""))
+            outcomes = {}
+            for bm in event.get("bookmakers", []):
+                for market in bm.get("markets", []):
+                    if market.get("key") == "h2h":
+                        for outcome in market.get("outcomes", []):
+                            outcomes[outcome['name'].lower()] = outcome['price']
+                if outcomes:
+                    break  # Tomamos solo la primera casa de apuestas con datos
+            odds_dict[(home, away)] = outcomes
+        return odds_dict
+    except Exception as e:
+        print(f"Error al consultar odds: {e}")
+        return {}
 
 
 def calcular_probabilidades(score_local, score_visit):
@@ -408,6 +438,7 @@ def predicciones(liga):
     fbref_id = LIGAS[liga]["fbref_id"]
     stats = obtener_estadisticas_avanzadas(fbref_id)
     partidos = obtener_partidos(competition_id)
+    odds_liga = obtener_odds(sport_key_map[liga])
     resultados = []
 
     if stats and partidos:
@@ -420,6 +451,7 @@ def predicciones(liga):
             home = match['homeTeam']['name']
             away = match['awayTeam']['name']
             fecha = match['utcDate']
+            odds = odds_liga.get((normalizar_nombre_equipo(home), normalizar_nombre_equipo(away)), {})
             # ✅ Filtrar solo partidos de esta semana
             #if not this_week(fecha):
             #    continue
@@ -454,7 +486,8 @@ def predicciones(liga):
                         "awayWin": prob_visit,
                         "draw": prob_empate
                     },
-                    "confidence": round(ventaja, 1) + 4
+                    "confidence": round(ventaja, 1) + 4,
+                    "odds": odds
                 })
             except Exception as e:
                 print(f"Error procesando partido {home} vs {away}: {e}")
