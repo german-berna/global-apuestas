@@ -16,7 +16,12 @@ cache_por_liga = {}
 last_update_por_liga = {}
 resultados_globales = []
 
-ODDS_API_KEY = "e95928872759eb91f6e4e02410315072"
+odds_api_keys = [
+    "e95928872759eb91f6e4e02410315072",
+    "1e5898725d8bb48d5d63ca972f55680d",
+    "af97c485f3ba69136f61bbfb748d8a3d",
+    "34a928fd1b9925b6c790df12350aa8ad"
+]
 
 sport_key_map = {
     "laliga": "soccer_spain_la_liga",
@@ -33,6 +38,22 @@ scraperapi_keys = [
     "6585c7b813299af1ce71e54ce9776b84",
     "ad218ecf00d9b705804e71cf6588ab8a"
 ]
+
+def get_valid_odds_api_key():
+    for key in odds_api_keys:
+        url = f"https://api.the-odds-api.com/v4/sports/soccer_epl/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={key}"
+        try:
+            resp = requests.get(url)
+            if resp.status_code == 200:
+                return key
+            elif resp.status_code == 429:
+                print(f"⚠️ Límite alcanzado para Odds API Key: {key}")
+            else:
+                print("nothing")
+        except Exception as e:
+            print(f"❌ Error verificando Odds API Key: {key} → {e}")
+    return None
+
 
 def check_scraperapi_credits(api_key):
     url = f"https://api.scraperapi.com/account?api_key={api_key}"
@@ -204,7 +225,12 @@ def normalizar_nombre_equipo(nombre):
 
 
 def obtener_odds(liga_sport_key):
-    url = f"https://api.the-odds-api.com/v4/sports/{liga_sport_key}/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={ODDS_API_KEY}"
+    api_key = get_valid_odds_api_key()
+    if not api_key:
+        print("❌ No hay claves válidas para Odds API.")
+        return {}
+
+    url = f"https://api.the-odds-api.com/v4/sports/{liga_sport_key}/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={api_key}"
     try:
         resp = requests.get(url)
         if resp.status_code != 200:
