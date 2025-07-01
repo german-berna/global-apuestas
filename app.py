@@ -106,6 +106,9 @@ def normalizar_nombre_equipo(nombre):
         return "betis"
     if "deportivo alaves" in nombre_limpio or "alaves" in nombre_limpio:
         return "alaves"
+    # Justo antes del return final, agrega esto
+    if "paris fc" in nombre_limpio.lower():
+        return "paris fc"
 
     # Diccionario de alias (normalizados)
     alias = {
@@ -176,7 +179,8 @@ def normalizar_nombre_equipo(nombre):
         "espanyol": ["espanyol", "rcd espanyol", "rcd espanyol de barcelona"],
 
         # ligue1
-        "paris sg": ["paris sg", "paris saint-germain", "psg"],
+        "paris fc": ["paris fc"],
+        "paris saint-germain": ["paris sg", "paris saint-germain", "psg", "paris saint germain", "paris st germain"],
         "marseille": ["marseille", "olympique marseille"],
         "lyon": ["lyon", "olympique lyonnais"],
         "monaco": ["monaco", "as monaco"],
@@ -189,11 +193,16 @@ def normalizar_nombre_equipo(nombre):
         "reims": ["reims", "stadede reims", "stade de reims"],
         "strasbourg": ["strasbourg", "rc strasbourg"],
         "brest": ["brest", "stadebrestois", "stadé brestois"],
-        "lens": ["lens", "rc lens"],
+        "lens": ["lens", "rc lens","rc lens", "racing club de lens", "racing lens"],
         "le havre": ["le havre", "le havre ac"],
         "angers": ["angers", "angers sco"],
         "auxerre": ["auxerre", "aj auxerre"],
-        "saint-etienne": ["saint-etienne", "saint etienne", "as saint-etienne"]
+        "saint-etienne": ["saint-etienne", "saint etienne", "as saint-etienne"],
+        "lorient": ["fc lorient", "lorient"],
+        "strasbourg": ["rc strasbourg", "rc strasbourg alsace", "strasbourg alsace"],
+        "lille": ["lille", "losc lille", "lille osc"],
+        "metz": ["fc metz", "metz"],
+        "paris fc": ["paris fc"],
 
     }
 
