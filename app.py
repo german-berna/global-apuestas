@@ -8,7 +8,17 @@ from math import exp
 import httpx
 from flask import Flask, jsonify
 from flask_cors import CORS
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import google.generativeai as genai
+
+# Configura tu clave de Gemini (AI Studio)
+genai.configure(api_key="AIzaSyDoNfyVBt4S7P8UV9Kma9NseZYIXosZtzc")
+
+# Carga el modelo correcto
+model = genai.GenerativeModel(model_name="models/gemini-2.5-flash")
+
+
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -234,6 +244,37 @@ def normalizar_nombre_equipo(nombre):
     # Si todo falla
     print(f"❌ No se pudo emparejar: {nombre_original} → normalizado: {nombre_limpio}")
     return nombre_limpio
+
+def generar_analisis_completo_chatgpt(home, away, score_home, score_away, prob_local, prob_visit, prob_draw):
+    prompt_usuario = f"""
+Eres un analista deportivo profesional. Tu tarea es generar un análisis completo y detallado para un partido de fútbol entre {home} y {away}. Usa un estilo profesional y claro.  Hoy es {datetime.now().strftime("%d/%m/%Y")}.
+El partido entre {home} y {away} se juega hoy. Usa estos datos estimados como base. Incluye:
+
+1. 🧠 Análisis previo (nombre del torneo y fase si es conocido)
+2. 🗞️ Historial entre ambos equipos (si tienes datos, o sugiere ventaja histórica si aplica)
+3. 📊 Estado de forma actual (goles a favor/en contra, posesión, racha, figuras clave)
+4. 🔎 Análisis táctico de ambos equipos (sistema, fortalezas, debilidades)
+5. ⚽ Goleadores probables, según contexto
+6. ⚠️ Comparativa de ventajas y desventajas (en plantilla, eficacia, defensa, lesiones) (en texto plano)
+7. 📈 Predicción final del resultado probable (según datos y forma posible puntuación resultado final equipos)
+8. 📝 Conclusión sobre quién tiene más posibilidades de ganar
+
+Datos del modelo:
+- Score estimado: {home} = {round(score_home, 2)} | {away} = {round(score_away, 2)}
+- Probabilidades: {home}: {prob_local:.1f}%, {away}: {prob_visit:.1f}%, Empate: {prob_draw:.1f}%
+
+Hazlo detallado, como si fuera un artículo publicado por un medio deportivo. y tienes que darme nombres de los jugadores reales acutales a la fecha, los históricos si que los tienes de este año buscalos por internet. de todo lo que digas tienen que ser datos extraidos de internet y asegurate de que esos datos estén y sean correctos.
+No debes dejar ningún campo incompleto ni hacer suposiciones. Usa datos conocidos. No utilices texto entre corchetes ni frases como "necesita verificación".
+NO USES corchetes ni digas "supongamos". Reduce el texto a 1500 caracteres como máximo.
+"""
+
+    try:
+        respuesta = model.generate_content([prompt_usuario])
+        return respuesta.text
+    except Exception as e:
+        print(f"❌ Error al generar análisis con Gemini API: {e}")
+        return "Análisis no disponible por el momento."
+
 
 
 def obtener_odds(liga_sport_key):
@@ -485,14 +526,15 @@ def predicciones(liga):
             for team in stats
         }
 
+    # Almacena las tareas para procesamiento paralelo
+    tasks = []
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
         for match in partidos:
             home = match['homeTeam']['name']
             away = match['awayTeam']['name']
             fecha = match['utcDate']
             odds = odds_liga.get((normalizar_nombre_equipo(home), normalizar_nombre_equipo(away)), {})
-            # ✅ Filtrar solo partidos de esta semana
-            #if not this_week(fecha):
-            #    continue
 
             equipo_local = buscar_equipo(home, equipos_dict)
             equipo_visitante = buscar_equipo(away, equipos_dict)
@@ -512,24 +554,37 @@ def predicciones(liga):
                 elif prob_visit > max(prob_local, prob_empate):
                     prediccion = away
 
-                resultados.append({
-                    "date": fecha,
-                    "home": home,
-                    "away": away,
-                    "scoreHome": round(score_local, 2),
-                    "scoreAway": round(score_visit, 2),
-                    "prediction": prediccion,
-                    "probabilities": {
-                        "homeWin": prob_local,
-                        "awayWin": prob_visit,
-                        "draw": prob_empate
-                    },
-                    "confidence": round(ventaja, 1) + 4,
-                    "odds": odds
-                })
+                # Lanzamos la tarea de análisis
+                tasks.append(executor.submit(
+                    lambda h=home, a=away, sl=score_local, sv=score_visit, pl=prob_local, pv=prob_visit, pd=prob_empate, f=fecha, o=odds, p=prediccion, v=ventaja: {
+                        "date": f,
+                        "home": h,
+                        "away": a,
+                        "scoreHome": round(sl, 2),
+                        "scoreAway": round(sv, 2),
+                        "prediction": p,
+                        "probabilities": {
+                            "homeWin": pl,
+                            "awayWin": pv,
+                            "draw": pd
+                        },
+                        "confidence": round(v, 1) + 4,
+                        "odds": o if o else {},
+                        "analysis": generar_analisis_completo_chatgpt(h, a, sl, sv, pl, pv, pd) if o else ""
+                    }
+                ))
+
+
             except Exception as e:
                 print(f"Error procesando partido {home} vs {away}: {e}")
                 continue
+
+        # Esperamos a que terminen y agregamos los resultados
+        for future in as_completed(tasks):
+            try:
+                resultados.append(future.result())
+            except Exception as e:
+                print(f"❌ Error en tarea de análisis: {e}")
 
     # ✅ Guardar en caché solo si hay resultados
     if resultados:
