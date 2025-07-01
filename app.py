@@ -109,6 +109,9 @@ def normalizar_nombre_equipo(nombre):
     # Justo antes del return final, agrega esto
     if "paris fc" in nombre_limpio.lower():
         return "paris fc"
+    if "paris saint-germain" in nombre_limpio.lower() or "psg" in nombre_limpio.lower():
+        return "paris saint-germain"
+
 
     # Diccionario de alias (normalizados)
     alias = {
