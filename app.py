@@ -586,6 +586,8 @@ def predicciones(liga):
             except Exception as e:
                 print(f"❌ Error en tarea de análisis: {e}")
 
+    # ✅ Ordenar resultados por fecha
+    resultados.sort(key=lambda x: x["date"])
     # ✅ Guardar en caché solo si hay resultados
     if resultados:
         cache_por_liga[liga] = resultados
