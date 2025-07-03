@@ -10,6 +10,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import google.generativeai as genai
+import os
+import json
 
 # Configura tu clave de Gemini (AI Studio)
 genai.configure(api_key="AIzaSyDoNfyVBt4S7P8UV9Kma9NseZYIXosZtzc")
@@ -22,9 +24,8 @@ from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
-cache_por_liga = {}
-last_update_por_liga = {}
-resultados_globales = []
+CACHE_DIR = "cache"
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 odds_api_keys = [
     "e95928872759eb91f6e4e02410315072",
@@ -244,6 +245,27 @@ def normalizar_nombre_equipo(nombre):
     # Si todo falla
     print(f"❌ No se pudo emparejar: {nombre_original} → normalizado: {nombre_limpio}")
     return nombre_limpio
+
+def guardar_cache_en_disco(liga, data):
+    payload = {
+        "timestamp": time.time(),
+        "data": data
+    }
+    with open(os.path.join(CACHE_DIR, f"{liga}.json"), "w") as f:
+        json.dump(payload, f)
+
+
+def leer_cache_de_disco(liga, max_age=43200):  # por defecto 12 horas
+    try:
+        with open(os.path.join(CACHE_DIR, f"{liga}.json"), "r") as f:
+            payload = json.load(f)
+        timestamp = payload.get("timestamp", 0)
+        if time.time() - timestamp < max_age:
+            return payload.get("data")
+    except:
+        pass
+    return None  # vencido o inválido
+
 
 def generar_analisis_completo_chatgpt(home, away, score_home, score_away, prob_local, prob_visit, prob_draw):
     prompt_usuario = f"""
@@ -506,12 +528,9 @@ def predicciones(liga):
     if liga not in LIGAS:
         return jsonify({"error": "Liga no válida"}), 400
 
-    if (
-        liga in cache_por_liga
-        and liga in last_update_por_liga
-        and now - last_update_por_liga[liga] < 43200  # 12 horas = 12 * 3600
-    ):
-        return jsonify(cache_por_liga[liga])
+    datos_cache = leer_cache_de_disco(liga)
+    if datos_cache:
+        return jsonify(datos_cache)
 
     competition_id = LIGAS[liga]["competition_id"]
     fbref_id = LIGAS[liga]["fbref_id"]
@@ -590,8 +609,7 @@ def predicciones(liga):
     resultados.sort(key=lambda x: x["date"])
     # ✅ Guardar en caché solo si hay resultados
     if resultados:
-        cache_por_liga[liga] = resultados
-        last_update_por_liga[liga] = now
+        guardar_cache_en_disco(liga, resultados)
 
     return jsonify(resultados)
 
