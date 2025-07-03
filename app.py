@@ -34,6 +34,8 @@ odds_api_keys = [
     "34a928fd1b9925b6c790df12350aa8ad"
 ]
 
+API_KEY_ALLSPORTS = "90c806f3e12ada0430419852b3f32584136400f5fb7bf97dfc5875fd492a30cf"
+
 sport_key_map = {
     "laliga": "soccer_spain_la_liga",
     "premier": "soccer_epl",
@@ -49,6 +51,13 @@ scraperapi_keys = [
     "6585c7b813299af1ce71e54ce9776b84",
     "ad218ecf00d9b705804e71cf6588ab8a"
 ]
+#Para saber empates
+LEAGUE_IDS = {
+    "seriea": 207,
+    "ligue1": 168,
+    "laliga": 302,
+    "premier": 152
+}
 
 def get_valid_odds_api_key():
     for key in odds_api_keys:
@@ -254,6 +263,31 @@ def guardar_cache_en_disco(liga, data):
     with open(os.path.join(CACHE_DIR, f"{liga}.json"), "w") as f:
         json.dump(payload, f)
 
+def generar_y_guardar_team_ids():
+    team_ids_global = {}
+    for liga, league_id in LEAGUE_IDS.items():
+        ids_liga = obtener_team_ids_por_liga(league_id)
+        if ids_liga:
+            team_ids_global[liga] = ids_liga
+    # Guardar en disco
+    with open(TEAM_IDS_PATH, "w", encoding="utf-8") as f:
+        json.dump(team_ids_global, f, indent=2, ensure_ascii=False)
+    print("✅ Archivo team_ids.json generado y guardado.")
+
+
+TEAM_IDS_PATH = os.path.join(CACHE_DIR, "team_ids.json")
+
+def cargar_team_ids():
+    if not os.path.exists(TEAM_IDS_PATH):
+        print("⚠️ team_ids.json no encontrado. Generando...")
+        generar_y_guardar_team_ids()
+    try:
+        with open(TEAM_IDS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"❌ Error leyendo team_ids.json: {e}")
+        return {}
+
 
 def leer_cache_de_disco(liga, max_age=43200):  # por defecto 12 horas
     try:
@@ -265,6 +299,59 @@ def leer_cache_de_disco(liga, max_age=43200):  # por defecto 12 horas
     except:
         pass
     return None  # vencido o inválido
+
+def obtener_team_ids_por_liga(league_id):
+    url = f"https://apiv2.allsportsapi.com/football/?met=Teams&leagueId={league_id}&APIkey={API_KEY_ALLSPORTS}"
+    try:
+        resp = requests.get(url)
+        data = resp.json()
+        team_ids = {}
+        for team in data.get("result", []):
+            nombre = normalizar_nombre_equipo(team["team_name"])
+            team_ids[nombre] = team["team_key"]
+        return team_ids
+    except Exception as e:
+        print(f"❌ Error obteniendo equipos liga {league_id}: {e}")
+        return {}
+
+
+def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
+    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        h2h_partidos = data.get("result", {}).get("H2H", [])
+        h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
+        empates = 0
+        for partido in h2h_partidos[:max_partidos]:
+            resultado = partido.get("event_final_result", "")
+            goles = resultado.strip().split(" - ")
+            if len(goles) == 2 and goles[0] == goles[1]:
+                empates += 1
+
+        return empates
+    except Exception as e:
+        print(f"❌ Error contando empates: {e}")
+        return 0
+    
+def son_equipos_similares(team1, team2):
+    """
+    Evalúa si ambos equipos tienen rendimiento similar basado en score, xG, posesión y goles.
+    """
+    score1 = calcular_score(team1)
+    score2 = calcular_score(team2)
+    diff_score = abs(score1 - score2)
+    diff_xg = abs(parse_number(team1['npxg']) - parse_number(team2['npxg']))
+    diff_goals = abs(parse_number(team1['goals']) - parse_number(team2['goals']))
+    diff_possession = abs(parse_percent(team1['possession']) - parse_percent(team2['possession']))
+
+    return (
+        diff_score / max(score1, score2) < 0.08 and
+        diff_xg <= 0.4 and
+        diff_goals <= 2 and
+        diff_possession <= 10
+    )
+
 
 
 def generar_analisis_completo_chatgpt(home, away, score_home, score_away, prob_local, prob_visit, prob_draw):
@@ -567,8 +654,31 @@ def predicciones(liga):
                 prob_local, prob_visit, prob_empate = calcular_probabilidades(score_local, score_visit)
                 ventaja = abs(score_local - score_visit) / max(score_local, score_visit) * 100
 
-                prediccion = "Empate"
-                if prob_local > max(prob_visit, prob_empate):
+                xg_diff = abs(parse_number(equipo_local['npxg']) - parse_number(equipo_visitante['npxg']))
+                goles_diff = abs(parse_number(equipo_local['goals']) - parse_number(equipo_visitante['goals']))
+                posesion_diff = abs(parse_percent(equipo_local['possession']) - parse_percent(equipo_visitante['possession']))
+
+                nivel_similar = son_equipos_similares(equipo_local, equipo_visitante)
+                team_ids_por_liga = cargar_team_ids()
+                home_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(home))
+                away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
+                if home_id and away_id:
+                    empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
+                else:
+                    empates_recientes = 0  
+
+
+                empate_probable = (
+                    (prob_empate >= 30 and
+                    ventaja < 8 and
+                    xg_diff <= 0.3 and
+                    goles_diff <= 2 and
+                    posesion_diff <= 10) or
+                    (nivel_similar or (empates_recientes) >= 2)
+                )
+                if empate_probable:
+                    prediccion = "Empate"
+                elif prob_local > max(prob_visit, prob_empate):
                     prediccion = home
                 elif prob_visit > max(prob_local, prob_empate):
                     prediccion = away
