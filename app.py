@@ -669,12 +669,12 @@ def predicciones(liga):
 
 
                 empate_probable = (
-                    (prob_empate >= 30 and
+                    ((prob_empate >= 30 and
                     ventaja < 8 and
                     xg_diff <= 0.3 and
                     goles_diff <= 2 and
-                    posesion_diff <= 10) or
-                    (nivel_similar or (empates_recientes) >= 2)
+                    posesion_diff <= 10 or
+                    nivel_similar) and empates_recientes >= 2) or (empates_recientes) >= 3
                 )
                 if empate_probable:
                     prediccion = "Empate"
