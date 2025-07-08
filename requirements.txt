@@ -1,0 +1,11 @@
+flask
+flask-cors
+requests
+selenium
+beautifulsoup4
+webdriver-manager
+gunicorn
+httpx
+google-generativeai>=0.5.1
+google-search-results
+google-cloud-aiplatform
