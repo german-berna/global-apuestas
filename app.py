@@ -337,6 +337,10 @@ def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
         print(f"❌ Error contando empates: {e}")
         return 0
     
+def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
+    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    try:
+        response = requests.get(url)
         data = response.json()
         h2h_partidos = data.get("result", {}).get("H2H", [])
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
