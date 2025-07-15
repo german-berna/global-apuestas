@@ -337,6 +337,51 @@ def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
         print(f"❌ Error contando empates: {e}")
         return 0
     
+        data = response.json()
+        h2h_partidos = data.get("result", {}).get("H2H", [])
+        h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
+
+        victorias_local = []
+        victorias_visitante = []
+        empates = []
+
+        for partido in h2h_partidos[:max_partidos]:
+            resultado = partido.get("event_final_result", "")
+            fecha = partido.get("event_date")
+            goles = resultado.strip().split(" - ")
+            if len(goles) == 2:
+                g1, g2 = int(goles[0]), int(goles[1])
+                if g1 > g2:
+                    victorias_local.append(fecha)
+                elif g2 > g1:
+                    victorias_visitante.append(fecha)
+                else:
+                    empates.append(fecha)
+
+        return {
+            "local_victories": {
+                "count": len(victorias_local),
+                "dates": victorias_local
+            },
+            "away_wins": {
+                "count": len(victorias_visitante),
+                "dates": victorias_visitante
+            },
+            "draws": {
+                "count": len(empates),
+                "dates": empates
+            }
+        }
+    except Exception as e:
+        print(f"❌ Error obteniendo historial H2H: {e}")
+        return {
+            "local_victories": {"count": 0, "dates": []},
+            "away_wins": {"count": 0, "dates": []},
+            "draws": {"count": 0, "dates": []}
+        }
+
+
+    
 def son_equipos_similares(team1, team2):
     """
     Evalúa si ambos equipos tienen rendimiento similar basado en score, xG, posesión y goles.
@@ -651,8 +696,10 @@ def predicciones(liga):
                 away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
                 if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
+                    historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                 else:
                     empates_recientes = 0  
+                    historial = {"local_victories": 0, "away_wins": 0, "draws": 0}
 
 
                 empate_probable = (
@@ -686,7 +733,8 @@ def predicciones(liga):
                         },
                         "confidence": round(v, 1) + 4,
                         "odds": o if o else {},
-                        "analysis": generar_analisis_completo_chatgpt(h, a, sl, sv, pl, pv, pd) if o else ""
+                        "analysis": generar_analisis_completo_chatgpt(h, a, sl, sv, pl, pv, pd) if o else "",
+                        "historial": historial
                     }
                 ))
 
