@@ -15,6 +15,7 @@ from datetime import datetime
 from google import genai
 from google.genai.types import GenerateContentConfig, Tool, GoogleSearch
 from datetime import datetime
+from bs4 import BeautifulSoup, Comment
 
 # Configurar credenciales
 
@@ -721,13 +722,14 @@ def predicciones(liga):
                 team_ids_por_liga = cargar_team_ids()
                 home_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(home))
                 away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
-                if home_id and away_id:
+                historial = {"local_victories": {"count": 0, "dates": []},
+                            "away_wins": {"count": 0, "dates": []},
+                            "draws": {"count": 0, "dates": []}}
+                empates_recientes = 0
+
+                if odds and home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
-                else:
-                    empates_recientes = 0  
-                    historial = {"local_victories": 0, "away_wins": 0, "draws": 0}
-
 
                 empate_probable = (
                     ((prob_empate >= 30 and
