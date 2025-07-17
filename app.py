@@ -15,7 +15,6 @@ from datetime import datetime
 from google import genai
 from google.genai.types import GenerateContentConfig, Tool, GoogleSearch
 from datetime import datetime
-from bs4 import BeautifulSoup, Comment
 
 # Configurar credenciales
 
@@ -326,16 +325,9 @@ def obtener_team_ids_por_liga(league_id):
 
 
 def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
-    scraper_key = get_valid_scraperapi_key()
-    if not scraper_key:
-        print("❌ No hay claves válidas de ScraperAPI.")
-        return 0
-
-    raw_url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
-    proxy_url = f"http://api.scraperapi.com?api_key={scraper_key}&url={raw_url}"
-
+    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
     try:
-        response = requests.get(proxy_url)
+        response = requests.get(url)
         data = response.json()
         h2h_partidos = data.get("result", {}).get("H2H", [])
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
@@ -345,27 +337,16 @@ def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             goles = resultado.strip().split(" - ")
             if len(goles) == 2 and goles[0] == goles[1]:
                 empates += 1
+
         return empates
     except Exception as e:
-        print(f"❌ Error contando empates con proxy: {e}")
+        print(f"❌ Error contando empates: {e}")
         return 0
-
     
 def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
-    scraper_key = get_valid_scraperapi_key()
-    if not scraper_key:
-        print("❌ No hay claves válidas de ScraperAPI.")
-        return {
-            "local_victories": {"count": 0, "dates": []},
-            "away_wins": {"count": 0, "dates": []},
-            "draws": {"count": 0, "dates": []}
-        }
-
-    raw_url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
-    proxy_url = f"http://api.scraperapi.com?api_key={scraper_key}&url={raw_url}"
-
+    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
     try:
-        response = requests.get(proxy_url)
+        response = requests.get(url)
         data = response.json()
         h2h_partidos = data.get("result", {}).get("H2H", [])
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
@@ -402,7 +383,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             }
         }
     except Exception as e:
-        print(f"❌ Error obteniendo historial H2H con proxy: {e}")
+        print(f"❌ Error obteniendo historial H2H: {e}")
         return {
             "local_victories": {"count": 0, "dates": []},
             "away_wins": {"count": 0, "dates": []},
@@ -723,14 +704,14 @@ def predicciones(liga):
                 team_ids_por_liga = cargar_team_ids()
                 home_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(home))
                 away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
-                historial = {"local_victories": {"count": 0, "dates": []},
-                            "away_wins": {"count": 0, "dates": []},
-                            "draws": {"count": 0, "dates": []}}
-                empates_recientes = 0
-
-                if odds and home_id and away_id:
+                if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
+                else:
+                    empates_recientes = 0  
+                    historial = {"local_victories": 0, "away_wins": 0, "draws": 0}
+                    print("asvawevewqgew")
+
 
                 empate_probable = (
                     ((prob_empate >= 30 and
