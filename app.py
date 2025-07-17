@@ -324,9 +324,16 @@ def obtener_team_ids_por_liga(league_id):
 
 
 def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
-    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    scraper_key = get_valid_scraperapi_key()
+    if not scraper_key:
+        print("❌ No hay claves válidas de ScraperAPI.")
+        return 0
+
+    raw_url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    proxy_url = f"http://api.scraperapi.com?api_key={scraper_key}&url={raw_url}"
+
     try:
-        response = requests.get(url)
+        response = requests.get(proxy_url)
         data = response.json()
         h2h_partidos = data.get("result", {}).get("H2H", [])
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
@@ -336,16 +343,27 @@ def contar_empates_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             goles = resultado.strip().split(" - ")
             if len(goles) == 2 and goles[0] == goles[1]:
                 empates += 1
-
         return empates
     except Exception as e:
-        print(f"❌ Error contando empates: {e}")
+        print(f"❌ Error contando empates con proxy: {e}")
         return 0
+
     
 def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
-    url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    scraper_key = get_valid_scraperapi_key()
+    if not scraper_key:
+        print("❌ No hay claves válidas de ScraperAPI.")
+        return {
+            "local_victories": {"count": 0, "dates": []},
+            "away_wins": {"count": 0, "dates": []},
+            "draws": {"count": 0, "dates": []}
+        }
+
+    raw_url = f"https://apiv2.allsportsapi.com/football/?met=H2H&firstTeamId={first_team_id}&secondTeamId={second_team_id}&APIkey={api_key}"
+    proxy_url = f"http://api.scraperapi.com?api_key={scraper_key}&url={raw_url}"
+
     try:
-        response = requests.get(url)
+        response = requests.get(proxy_url)
         data = response.json()
         h2h_partidos = data.get("result", {}).get("H2H", [])
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
@@ -382,7 +400,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             }
         }
     except Exception as e:
-        print(f"❌ Error obteniendo historial H2H: {e}")
+        print(f"❌ Error obteniendo historial H2H con proxy: {e}")
         return {
             "local_victories": {"count": 0, "dates": []},
             "away_wins": {"count": 0, "dates": []},
