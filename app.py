@@ -359,14 +359,26 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             resultado = partido.get("event_final_result", "")
             fecha = partido.get("event_date")
             goles = resultado.strip().split(" - ")
-            if len(goles) == 2:
-                g1, g2 = int(goles[0]), int(goles[1])
-                if g1 > g2:
+            if len(goles) != 2:
+                continue
+
+            g1, g2 = int(goles[0]), int(goles[1])
+            home_id = partido.get("home_team_key")
+            away_id = partido.get("away_team_key")
+
+            if g1 == g2:
+                empates.append(fecha)
+            elif g1 > g2:
+                if home_id == first_team_id:
                     victorias_local.append(fecha)
-                elif g2 > g1:
-                    victorias_visitante.append(fecha)
                 else:
-                    empates.append(fecha)
+                    victorias_visitante.append(fecha)
+            elif g2 > g1:
+                if away_id == first_team_id:
+                    victorias_local.append(fecha)
+                else:
+                    victorias_visitante.append(fecha)
+
 
         return {
             "local_victories": {
