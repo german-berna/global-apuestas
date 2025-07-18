@@ -362,7 +362,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             home_id = partido.get("home_team_key")
             away_id = partido.get("away_team_key")
 
-            # Verificación estricta de que el partido es entre los dos equipos esperados
+            # Verifica que son los equipos correctos
             if {home_id, away_id} != {first_team_id, second_team_id}:
                 continue
 
@@ -373,16 +373,14 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
 
             if g1 == g2:
                 empates.append(fecha)
-            elif g1 > g2:
-                if home_id == first_team_id:
-                    victorias_local.append(fecha)
+            else:
+                # Determina quién ganó
+                ganador_id = home_id if g1 > g2 else away_id
+                if ganador_id == first_team_id:
+                    victorias_local.append(fecha)  # Aquí "local" = equipo 1
                 else:
-                    victorias_visitante.append(fecha)
-            elif g2 > g1:
-                if away_id == first_team_id:
-                    victorias_local.append(fecha)
-                else:
-                    victorias_visitante.append(fecha)
+                    victorias_visitante.append(fecha)  # Aquí "visitante" = equipo 2
+
 
 
         return {
