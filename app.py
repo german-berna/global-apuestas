@@ -140,6 +140,11 @@ def normalizar_nombre_equipo(nombre):
         return "paris fc"
     if "paris saint-germain" in nombre_limpio.lower() or "psg" in nombre_limpio.lower():
         return "paris saint-germain"
+    if "rayo vallecano" in nombre_limpio:
+        return "rayo vallecano"
+    if "girona" in nombre_limpio:
+        return "girona"
+
 
 
     # Diccionario de alias (normalizados)
@@ -736,6 +741,8 @@ def predicciones(liga):
                 if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
+                    if odds:
+                        analysis = generar_analisis_completo_chatgpt(home, away, score_local, score_visit, prob_local, prob_visit, prob_empate) if odds else ""
                 else:
                     empates_recientes = 0  
                     historial = {"local_victories": 0, "away_wins": 0, "draws": 0}
@@ -773,7 +780,7 @@ def predicciones(liga):
                         },
                         "confidence": round(v, 1) + 4,
                         "odds": o if o else {},
-                        "analysis": generar_analisis_completo_chatgpt(h, a, sl, sv, pl, pv, pd) if o else "",
+                        "analysis": analysis if o else "",
                         "historial": historial
                     }
                 ))
