@@ -348,7 +348,22 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
     try:
         response = requests.get(url)
         data = response.json()
-        h2h_partidos = data.get("result", {}).get("H2H", [])
+        result = data.get("result", {})
+        
+        h2h_partidos = result.get("H2H", [])
+        
+        # Si H2H está vacío, combinar los partidos de ambos equipos
+        if not h2h_partidos:
+            first = result.get("firstTeamResults", [])
+            second = result.get("secondTeamResults", [])
+            all_matches = first + second
+            # Filtrar solo partidos entre ambos equipos
+            h2h_partidos = [
+                m for m in all_matches
+                if set([m["home_team_key"], m["away_team_key"]]) == set([first_team_id, second_team_id])
+            ]
+
+        # Ordenar por fecha descendente
         h2h_partidos.sort(key=lambda x: datetime.strptime(x["event_date"], "%Y-%m-%d"), reverse=True)
 
         victorias_local = []
@@ -362,7 +377,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             home_id = partido.get("home_team_key")
             away_id = partido.get("away_team_key")
 
-            # Verifica que son los equipos correctos
+            # Confirmar que el partido es entre los dos equipos deseados
             if {home_id, away_id} != {first_team_id, second_team_id}:
                 continue
 
@@ -374,14 +389,11 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             if g1 == g2:
                 empates.append(fecha)
             else:
-                # Determina quién ganó
                 ganador_id = home_id if g1 > g2 else away_id
                 if ganador_id == first_team_id:
-                    victorias_local.append(fecha)  # Aquí "local" = equipo 1
+                    victorias_local.append(fecha)
                 else:
-                    victorias_visitante.append(fecha)  # Aquí "visitante" = equipo 2
-
-
+                    victorias_visitante.append(fecha)
 
         return {
             "local_victories": {
@@ -397,6 +409,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
                 "dates": empates
             }
         }
+
     except Exception as e:
         print(f"❌ Error obteniendo historial H2H: {e}")
         return {
@@ -404,6 +417,7 @@ def historial_h2h(api_key, first_team_id, second_team_id, max_partidos=5):
             "away_wins": {"count": 0, "dates": []},
             "draws": {"count": 0, "dates": []}
         }
+
 
 
     
