@@ -15,6 +15,7 @@ from datetime import datetime
 from google import genai
 from google.genai.types import GenerateContentConfig, Tool, GoogleSearch
 from datetime import datetime
+from bs4 import BeautifulSoup, Comment
 
 # Configurar credenciales
 
