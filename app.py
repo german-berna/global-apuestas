@@ -521,6 +521,7 @@ def obtener_estadisticas_avanzadas(fbref_id):
 
     # Determinar si estamos en o después de noviembre
     now = datetime.now()
+    if 8 <= now.month <= 9:
         season = f"{now.year - 1}-{now.year}"
         proxy_url = (
             f"http://api.scraperapi.com?api_key={api_key}"
