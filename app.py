@@ -519,7 +519,17 @@ def obtener_estadisticas_avanzadas(fbref_id):
         print("❌ No hay API keys de ScraperAPI disponibles.")
         return []
 
-    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url=https://fbref.com/en/comps/{fbref_id}/stats"
+    # Determinar si estamos en o después de noviembre
+    now = datetime.now()
+    if 8 <= now.month <= 10:
+        season = f"{now.year - 1}-{now.year}"
+        proxy_url = (
+            f"http://api.scraperapi.com?api_key={api_key}"
+            f"&url=https://fbref.com/en/comps/{fbref_id}/{season}/{season}-"
+        )
+        print("entra")
+    else:
+        proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url=https://fbref.com/en/comps/{fbref_id}/stats"
 
     response = requests.get(proxy_url, headers=headers)
     soup = BeautifulSoup(response.content, "html.parser")
