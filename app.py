@@ -105,6 +105,41 @@ def get_valid_scraperapi_key():
             return key
     return None  # Si ninguna sirve
 
+def get_team_id(teams_map, raw_name):
+    norm = normalizar_nombre_equipo(raw_name)
+
+    # 1) directo
+    if norm in teams_map:
+        return teams_map[norm]
+
+    # 2) por tokens (p.ej. "real madrid" == "madrid real")
+    tok = set(norm.split())
+    for k, v in teams_map.items():
+        if set(k.split()) == tok:
+            return v
+
+    # 3) variantes conocidas
+    variants = []
+    if norm.startswith('ca '):
+        variants.append(norm[3:])              # "ca osasuna" -> "osasuna"
+    if norm == 'madrid':
+        variants += ['real madrid', 'atletico madrid']
+    if norm == 'sociedad':
+        variants.append('real sociedad')
+    if norm == 'oviedo':
+        variants.append('r oviedo')
+    if norm in ('inter', 'inter milan', 'internazionale'):
+        variants.append('internazionale')
+
+    for v in variants:
+        if v in teams_map:
+            return teams_map[v]
+
+    # 4) fuzzy relajado
+    cand = difflib.get_close_matches(norm, list(teams_map.keys()), n=1, cutoff=0.6)
+    return teams_map[cand[0]] if cand else None
+
+
 
 def normalizar_nombre_equipo(nombre):
     nombre_original = nombre.strip()
@@ -115,7 +150,11 @@ def normalizar_nombre_equipo(nombre):
     nombre = re.sub(r'\s+', ' ', nombre).strip()
 
     # Limpieza de palabras comunes
-    nombre_limpio = re.sub(r'\b(fc|ac|ss|us|as|ud|cd|club|calcio|cfc|bc|milano|s\.a\.d\.|real|atletico|de|balompie|cf|rcd|1909|1913|1919|1907)\b', '', nombre)
+    nombre_limpio = re.sub(
+        r'\b(fc|ac|ss|us|as|ud|cd|ca|club|calcio|cfc|bc|milano|s\.a\.d\.|de|balompie|cf|rcd|1909|1913|1919|1907)\b',
+        '',
+        nombre
+    )
     nombre_limpio = re.sub(r'\s+', ' ', nombre_limpio).strip()
 
     # Casos especiales conocidos
@@ -755,8 +794,8 @@ def predicciones(liga):
                     "away_wins": {"count": 0, "dates": []},
                     "draws": {"count": 0, "dates": []}
                 }
-                home_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(home))
-                away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
+                home_id = get_team_id(team_ids_por_liga.get(liga, {}), home)
+                away_id = get_team_id(team_ids_por_liga.get(liga, {}), away)
 
                 if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
