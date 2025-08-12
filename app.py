@@ -724,6 +724,7 @@ def predicciones(liga):
     tasks = []
 
     with ThreadPoolExecutor(max_workers=2) as executor:
+        team_ids_por_liga = cargar_team_ids()
         for match in partidos:
             home = match['homeTeam']['name']
             away = match['awayTeam']['name']
@@ -747,9 +748,16 @@ def predicciones(liga):
                 posesion_diff = abs(parse_percent(equipo_local['possession']) - parse_percent(equipo_visitante['possession']))
 
                 nivel_similar = son_equipos_similares(equipo_local, equipo_visitante)
-                team_ids_por_liga = cargar_team_ids()
+
+                analysis = ""
+                historial = {
+                    "local_victories": {"count": 0, "dates": []},
+                    "away_wins": {"count": 0, "dates": []},
+                    "draws": {"count": 0, "dates": []}
+                }
                 home_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(home))
                 away_id = team_ids_por_liga.get(liga, {}).get(normalizar_nombre_equipo(away))
+
                 if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
