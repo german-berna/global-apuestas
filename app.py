@@ -777,7 +777,7 @@ def predicciones(liga):
 
                 # Lanzamos la tarea de análisis
                 tasks.append(executor.submit(
-                    lambda h=home, a=away, sl=score_local, sv=score_visit, pl=prob_local, pv=prob_visit, pd=prob_empate, f=fecha, o=odds, p=prediccion, v=ventaja: {
+                    lambda h=home, a=away, sl=score_local, sv=score_visit, pl=prob_local, pv=prob_visit, pd=prob_empate, f=fecha, o=odds, p=prediccion, v=ventaja, al=analysis, hist=historial: {
                         "date": f,
                         "home": h,
                         "away": a,
@@ -791,8 +791,8 @@ def predicciones(liga):
                         },
                         "confidence": round(v, 1) + 4,
                         "odds": o if o else {},
-                        "analysis": analysis if o else "",
-                        "historial": historial
+                        "analysis": al if o else "",
+                        "historial": hist
                     }
                 ))
 
