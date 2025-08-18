@@ -683,7 +683,7 @@ def calcular_score(team):
     score = 0
     score += parse_number(team['npxg']) * 0.25
     score += parse_number(team['xag']) * 0.15
-    score += parse_number(team['shots_on_target']) * 0.10
+    score += parse_number(team['shots_on_target']) * 0.20
     score += parse_number(team['goals']) * 0.10
     score += parse_percent(team['possession']) * 0.20
     score += parse_number(team['passes_completed']) / 1000 * 0.10
