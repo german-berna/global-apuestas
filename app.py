@@ -105,6 +105,17 @@ def get_valid_scraperapi_key():
             return key
     return None  # Si ninguna sirve
 
+def is_today_or_tomorrow(fecha_iso: str) -> bool:
+    """Devuelve True si la fecha del partido es hoy o mañana (UTC)."""
+    try:
+        dt = datetime.fromisoformat(fecha_iso.replace("Z", "+00:00")).astimezone(timezone.utc)
+        today_utc = datetime.now(timezone.utc).date()
+        return dt.date() in (today_utc, today_utc + timedelta(days=1))
+    except Exception as e:
+        print("Error en is_today_or_tomorrow:", e)
+        return False
+
+
 def get_team_id(teams_map, raw_name):
     norm = normalizar_nombre_equipo(raw_name)
 
@@ -800,7 +811,7 @@ def predicciones(liga):
                 if home_id and away_id:
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
-                    if odds:
+                    if odds and is_today_or_tomorrow(fecha):
                         analysis = generar_analisis_completo_chatgpt(home, away, score_local, score_visit, prob_local, prob_visit, prob_empate) if odds else ""
                 else:
                     empates_recientes = 0  
