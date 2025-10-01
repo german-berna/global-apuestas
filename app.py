@@ -164,8 +164,6 @@ def normalizar_nombre_equipo(nombre):
     nombre = re.sub(r'\s+', ' ', nombre).strip()
     # --- NUEVO: quita prefijos alemanes y números sueltos típicos ---
     # (1., 1, 04, 05, 07, 10, 18xx, 19xx, 20xx, etc.)
-    tokens_quitar = r'\b(?:fc|sc|sv|vfl|vfb|tsg|bsc|s04|sg|sgd|fsv|hsv|ksv|msv)\b'
-    nombre = re.sub(tokens_quitar, '', nombre)
     nombre = re.sub(r'\b\d{1,4}\b', '', nombre)  # 1, 04, 05, 1846, 1899, 1910…
     nombre = re.sub(r'\s+', ' ', nombre).strip()
 
