@@ -169,13 +169,6 @@ def normalizar_nombre_equipo(nombre):
     nombre = re.sub(r'\b\d{1,4}\b', '', nombre)  # 1, 04, 05, 1846, 1899, 1910…
     nombre = re.sub(r'\s+', ' ', nombre).strip()
 
-    # Limpieza de palabras comunes (tu lista + algunas alemanas)
-    nombre = re.sub(
-        r'\b(fc|ac|ss|us|as|ud|cd|ca|club|calcio|cfc|bc|milano|s\.a\.d\.|de|balompie|cf|rcd|1909|1913|1919|1907|ev)\b',
-        '', nombre
-    )
-    nombre = re.sub(r'\s+', ' ', nombre).strip()
-
     # Mapeos rápidos por confusiones comunes (munchen/munich, monchengladbach/…)
     nombre = nombre.replace('munchen', 'munich')
     nombre = nombre.replace('monchengladbach', 'borussia monchengladbach')
