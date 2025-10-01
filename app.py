@@ -583,80 +583,54 @@ def obtener_odds(liga_sport_key):
         print("❌ No hay claves válidas para Odds API.")
         return {}
 
-    url = (f"https://api.the-odds-api.com/v4/sports/{liga_sport_key}/odds"
-           f"?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={api_key}")
+
+
+    url = f"https://api.the-odds-api.com/v4/sports/{liga_sport_key}/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={api_key}"
 
     try:
+
         resp = requests.get(url)
+
         if resp.status_code != 200:
-            print("Error al obtener cuotas:", resp.status_code, resp.text)
+
+            print("Error al obtener cuotas:", resp.status_code)
+
             return {}
 
         data = resp.json()
+
         odds_dict = {}
 
         for event in data:
-            home_raw = event.get("home_team", "")
-            away_raw = event.get("away_team", "")
 
-            home = normalizar_nombre_equipo(home_raw)
-            away = normalizar_nombre_equipo(away_raw)
+            home = normalizar_nombre_equipo(event.get("home_team", ""))
 
-            mapped = {}  # siempre devolveremos {home_name: x, away_name: y, draw: z}
+            away = normalizar_nombre_equipo(event.get("away_team", ""))
 
-            # Tomamos la PRIMERA casa de apuestas que tenga mercado h2h
+            outcomes = {}
+
             for bm in event.get("bookmakers", []):
-                has_h2h = False
+
                 for market in bm.get("markets", []):
-                    if market.get("key") != "h2h":
-                        continue
-                    has_h2h = True
-                    for o in market.get("outcomes", []):
-                        oname = normalizar_nombre_equipo(o.get("name", ""))
-                        price = o.get("price")
 
-                        # Empate (varias variantes posibles)
-                        if oname in {"draw", "empate", "tie", "x"}:
-                            mapped["draw"] = price
-                            continue
+                    if market.get("key") == "h2h":
 
-                        # Local
-                        if oname in {home, normalizar_nombre_equipo(home_raw), "home", "local"}:
-                            mapped[home] = price
-                            continue
+                        for outcome in market.get("outcomes", []):
 
-                        # Visitante
-                        if oname in {away, normalizar_nombre_equipo(away_raw), "away", "visitante"}:
-                            mapped[away] = price
-                            continue
+                            outcomes[outcome['name'].lower()] = outcome['price']
 
-                        # A veces el bookmaker ya trae los nombres exactos de los equipos
-                        # (p.ej., premier). Cubre ese caso:
-                        if oname == home:
-                            mapped[home] = price
-                        elif oname == away:
-                            mapped[away] = price
+                if outcomes:
 
-                    # si ya tenemos las 3, salimos del mercado
-                    if {"draw", home, away}.issubset(set(mapped.keys())):
-                        break
+                    break  # Tomamos solo la primera casa de apuestas con datos
 
-                if has_h2h:
-                    # si ya tenemos las 3, salimos del bookmaker
-                    if {"draw", home, away}.issubset(set(mapped.keys())):
-                        break
-
-            # Normaliza salida: siempre mismas claves
-            odds_clean = {}
-            if home in mapped: odds_clean[home] = mapped[home]
-            if away in mapped: odds_clean[away] = mapped[away]
-            if "draw" in mapped: odds_clean["draw"] = mapped["draw"]
-
-            odds_dict[(home, away)] = odds_clean
+            odds_dict[(home, away)] = outcomes
 
         return odds_dict
+
     except Exception as e:
+
         print(f"Error al consultar odds: {e}")
+
         return {}
 
 
