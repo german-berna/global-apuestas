@@ -594,41 +594,18 @@ def obtener_odds(liga_sport_key):
         odds_dict = {}
 
         for event in data:
-            home_raw = event.get("home_team", "")
-            away_raw = event.get("away_team", "")
-            home = normalizar_nombre_equipo(home_raw)
-            away = normalizar_nombre_equipo(away_raw)
-
-            # mejores precios por selección
-            best = {"home": None, "draw": None, "away": None}
+            home = normalizar_nombre_equipo(event.get("home_team", ""))
+            away = normalizar_nombre_equipo(event.get("away_team", ""))
+            outcomes = {}
 
             for bm in event.get("bookmakers", []):
                 for market in bm.get("markets", []):
-                    if market.get("key") != "h2h":
-                        continue
-                    for outcome in market.get("outcomes", []):
-                        name_raw = outcome.get("name", "")
-                        price = float(outcome.get("price", 0))
-                        name_norm = normalizar_nombre_equipo(name_raw)
-
-                        if name_norm == home:
-                            best["home"] = price if best["home"] is None else max(best["home"], price)
-                        elif name_norm == away:
-                            best["away"] = price if best["away"] is None else max(best["away"], price)
-                        elif name_raw.lower() in ("draw", "empate", "tie"):
-                            best["draw"] = price if best["draw"] is None else max(best["draw"], price)
-
-            # guarda solo si tenemos las 3 selecciones
-            if all(best[k] is not None for k in ("home", "draw", "away")):
-                odds_dict[(home, away)] = best
-            else:
-                # intenta invertir si la API invierte local/visitante
-                if all(best[k] is not None for k in ("away", "draw")):
-                    odds_dict[(home, away)] = {
-                        "home": best["home"] if best["home"] is not None else best["away"],
-                        "draw": best["draw"],
-                        "away": best["away"] if best["home"] is not None else None
-                    }
+                        if market.get("key") == "h2h":
+                            for outcome in market.get("outcomes", []):
+                                outcomes[outcome['name'].lower()] = outcome['price']
+                if outcomes:
+                    break  # Tomamos solo la primera casa de apuestas con datos
+            odds_dict[(home, away)] = outcomes
 
         return odds_dict
     except Exception as e:
