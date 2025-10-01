@@ -16,6 +16,7 @@ from google import genai
 from google.genai.types import GenerateContentConfig, Tool, GoogleSearch
 from datetime import datetime
 from bs4 import BeautifulSoup, Comment
+from math import exp, sqrt
 
 # Configurar credenciales
 
@@ -47,7 +48,8 @@ sport_key_map = {
     "laliga": "soccer_spain_la_liga",
     "premier": "soccer_epl",
     "ligue1": "soccer_france_ligue_one",
-    "seriea": "soccer_italy_serie_a"
+    "seriea": "soccer_italy_serie_a",
+    "bundesliga": "soccer_germany_bundesliga"
 }
 scraperapi_keys = [
     "b3c1a3296505fb10281d9726aa24dc64",
@@ -67,7 +69,8 @@ LEAGUE_IDS = {
     "seriea": 207,
     "ligue1": 168,
     "laliga": 302,
-    "premier": 152
+    "premier": 152,
+    "bundesliga": 175
 }
 
 def get_valid_odds_api_key():
@@ -159,6 +162,26 @@ def normalizar_nombre_equipo(nombre):
     nombre = ''.join(c for c in nombre if not unicodedata.combining(c))  # quitar tildes
     nombre = re.sub(r'[^\w\s]', '', nombre)  # eliminar símbolos
     nombre = re.sub(r'\s+', ' ', nombre).strip()
+    # --- NUEVO: quita prefijos alemanes y números sueltos típicos ---
+    # (1., 1, 04, 05, 07, 10, 18xx, 19xx, 20xx, etc.)
+    tokens_quitar = r'\b(?:fc|sc|sv|vfl|vfb|tsg|bsc|s04|sg|sgd|fsv|hsv|ksv|msv)\b'
+    nombre = re.sub(tokens_quitar, '', nombre)
+    nombre = re.sub(r'\b\d{1,4}\b', '', nombre)  # 1, 04, 05, 1846, 1899, 1910…
+    nombre = re.sub(r'\s+', ' ', nombre).strip()
+
+    # Limpieza de palabras comunes (tu lista + algunas alemanas)
+    nombre = re.sub(
+        r'\b(fc|ac|ss|us|as|ud|cd|ca|club|calcio|cfc|bc|milano|s\.a\.d\.|de|balompie|cf|rcd|1909|1913|1919|1907|ev)\b',
+        '', nombre
+    )
+    nombre = re.sub(r'\s+', ' ', nombre).strip()
+
+    # Mapeos rápidos por confusiones comunes (munchen/munich, monchengladbach/…)
+    nombre = nombre.replace('munchen', 'munich')
+    nombre = nombre.replace('monchengladbach', 'borussia monchengladbach')
+    nombre = nombre.replace('koln', 'fc koln')
+    nombre = re.sub(r'\bunion\b', 'union berlin', nombre)  # si quedó solo "union"
+
 
     # Limpieza de palabras comunes
     nombre_limpio = re.sub(
@@ -168,6 +191,29 @@ def normalizar_nombre_equipo(nombre):
     )
     nombre_limpio = re.sub(r'\s+', ' ', nombre_limpio).strip()
 
+
+    # equivalencias específicas DE (sin tildes ya):
+    reemplazos = {
+        "monchengladbach": "borussia monchengladbach",
+        "koln": "fc koln",
+        "munchen": "bayern munich",
+        "leverkusen": "bayer leverkusen",
+        "frankfurt": "eintracht frankfurt",
+        "augsburg": "augsburg",
+        "bochum": "bochum",
+        "heidenheim": "heidenheim",
+        "hoffenheim": "hoffenheim",
+        "freiburg": "freiburg",
+        "wolfsburg": "wolfsburg",
+        "bremen": "werder bremen",
+        "st pauli": "st pauli",
+        "hamburger sv": "hamburg",
+        "union berlin": "union berlin",
+        "hertha bsc": "hertha berlin",
+    }
+    for k, v in reemplazos.items():
+        if k in nombre_limpio:
+            nombre_limpio = v
     # Casos especiales conocidos
     if "barcelona" in nombre_limpio and "espanyol" in nombre_limpio:
         return "espanyol"
@@ -292,6 +338,30 @@ def normalizar_nombre_equipo(nombre):
         "lille": ["lille", "losc lille", "lille osc"],
         "metz": ["fc metz", "metz"],
         "paris fc": ["paris fc"],
+
+        # --- Bundesliga (nuevos) ---
+        "bayern munich": ["bayern", "fc bayern", "bayern munich", "bayern munchen", "fc bayern munchen"],
+        "borussia dortmund": ["borussia dortmund", "bvb", "dortmund"],
+        "rb leipzig": ["rb leipzig", "leipzig", "rassenballsport leipzig"],
+        "bayer leverkusen": ["bayer leverkusen", "leverkusen", "bayer 04 leverkusen"],
+        "borussia monchengladbach": ["borussia monchengladbach", "gladbach", "bor monchengladbach"],
+        "eintracht frankfurt": ["eintracht frankfurt", "frankfurt"],
+        "vfb stuttgart": ["vfb stuttgart", "stuttgart"],
+        "vfl wolfsburg": ["vfl wolfsburg", "wolfsburg"],
+        "werder bremen": ["sv werder bremen", "werder bremen", "bremen"],
+        "hoffenheim": ["tsg hoffenheim", "tsg 1899 hoffenheim", "hoffenheim"],
+        "freiburg": ["sc freiburg", "freiburg"],
+        "augsburg": ["fc augsburg", "augsburg"],
+        "fc koln": ["fc koln", "1 fc koln", "koln", "cologne"],
+        "mainz 05": ["mainz", "mainz 05", "1 fsv mainz 05"],
+        "union berlin": ["union berlin", "1 fc union berlin", "union"],
+        "heidenheim": ["heidenheim", "1 fc heidenheim"],
+        "bochum": ["vfl bochum", "bochum"],
+        # Segunda/ascensos frecuentes (por H2H históricos):
+        "hertha berlin": ["hertha bsc", "hertha berlin"],
+        "hamburg": ["hamburger sv", "hamburg", "hsv"],
+        "st pauli": ["fc st pauli", "st pauli", "fc st pauli 1910"],
+
 
     }
 
@@ -524,22 +594,49 @@ def obtener_odds(liga_sport_key):
     try:
         resp = requests.get(url)
         if resp.status_code != 200:
-            print("Error al obtener cuotas:", resp.status_code)
+            print("Error al obtener cuotas:", resp.status_code, resp.text)
             return {}
+
         data = resp.json()
         odds_dict = {}
+
         for event in data:
-            home = normalizar_nombre_equipo(event.get("home_team", ""))
-            away = normalizar_nombre_equipo(event.get("away_team", ""))
-            outcomes = {}
+            home_raw = event.get("home_team", "")
+            away_raw = event.get("away_team", "")
+            home = normalizar_nombre_equipo(home_raw)
+            away = normalizar_nombre_equipo(away_raw)
+
+            # mejores precios por selección
+            best = {"home": None, "draw": None, "away": None}
+
             for bm in event.get("bookmakers", []):
                 for market in bm.get("markets", []):
-                    if market.get("key") == "h2h":
-                        for outcome in market.get("outcomes", []):
-                            outcomes[outcome['name'].lower()] = outcome['price']
-                if outcomes:
-                    break  # Tomamos solo la primera casa de apuestas con datos
-            odds_dict[(home, away)] = outcomes
+                    if market.get("key") != "h2h":
+                        continue
+                    for outcome in market.get("outcomes", []):
+                        name_raw = outcome.get("name", "")
+                        price = float(outcome.get("price", 0))
+                        name_norm = normalizar_nombre_equipo(name_raw)
+
+                        if name_norm == home:
+                            best["home"] = price if best["home"] is None else max(best["home"], price)
+                        elif name_norm == away:
+                            best["away"] = price if best["away"] is None else max(best["away"], price)
+                        elif name_raw.lower() in ("draw", "empate", "tie"):
+                            best["draw"] = price if best["draw"] is None else max(best["draw"], price)
+
+            # guarda solo si tenemos las 3 selecciones
+            if all(best[k] is not None for k in ("home", "draw", "away")):
+                odds_dict[(home, away)] = best
+            else:
+                # intenta invertir si la API invierte local/visitante
+                if all(best[k] is not None for k in ("away", "draw")):
+                    odds_dict[(home, away)] = {
+                        "home": best["home"] if best["home"] is not None else best["away"],
+                        "draw": best["draw"],
+                        "away": best["away"] if best["home"] is not None else None
+                    }
+
         return odds_dict
     except Exception as e:
         print(f"Error al consultar odds: {e}")
@@ -724,6 +821,10 @@ LIGAS = {
     "seriea": {
         "competition_id": 2019,
         "fbref_id": "11",
+    },
+    "bundesliga": {
+        "competition_id": 2002,
+        "fbref_id": "20",
     }
 }
 
