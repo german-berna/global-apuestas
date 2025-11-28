@@ -63,7 +63,8 @@ scraperapi_keys = [
     "d92898efeccbb190f3ace36936156b76",
     "51efe4c3a3a39bdd096c0359033adb27",
     "4510051cbf554344250771bea5e57184",
-    "a86c1539ef8afe958d239fb48d49dfaf"
+    "a86c1539ef8afe958d239fb48d49dfaf",
+    "04fd3dc63ce3da5364fc890d46da2fa0"
 ]
 #Para saber empates
 LEAGUE_IDS = {
