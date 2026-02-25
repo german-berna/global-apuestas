@@ -560,9 +560,9 @@ def son_equipos_similares(team1, team2):
     )
 
 
-
+"""
 def generar_analisis_completo_chatgpt(home, away, score_home, score_away, prob_local, prob_visit, prob_draw):
-    prompt_usuario = f"""Eres un analista deportivo profesional. Tu tarea es generar un análisis completo y detallado para un partido de fútbol entre {home} y {away}. Usa un estilo profesional y claro. Hoy es {datetime.now().strftime("%d/%m/%Y")}. El partido entre {home} y {away} se juega hoy. Usa estos datos estimados como base. Incluye: 1. 🧠 Análisis previo (nombre del torneo y fase si es conocido) 2. 🗞️ Historial entre ambos equipos (sugiere ventaja histórica con la temporada anterior y la nueva) 3. 📊 Estado de forma actual (goles a favor/en contra, posesión, racha, figuras clave) últimos 5 partidos 4. 🔎 Análisis táctico de ambos equipos (sistema, fortalezas, debilidades) 5. ⚽ Goleadores probables, según contexto 6. ⚠️ Comparativa de ventajas y desventajas (en plantilla, eficacia, defensa) (en texto plano) 7. qué jugadores van a ser convocados, lesiones y si todo esto va a influir en el modelo 8. 📈 Predicción final del resultado probable (según datos y forma posible puntuación resultado final equipos)  9. 📝 Conclusión sobre quién tiene más posibilidades de ganar Datos del modelo teniendo en cuenta lo que hemos obtenido de la respuesta del prompt junto con los datos: - Score estimado: {home} = {round(score_home, 2)} | {away} = {round(score_away, 2)} - Probabilidades: {home}: {prob_local:.1f}%, {away}: {prob_visit:.1f}%, Empate: {prob_draw:.1f}% Hazlo detallado, como si fuera un artículo publicado por un medio deportivo. y tienes que darme nombres de los jugadores reales y entrenadores acutales a la fecha, los históricos si que los tienes de este año buscalos por internet. de todo lo que digas tienen que ser datos extraidos de internet y asegurate de que esos datos estén y sean correctos. No debes dejar ningún campo incompleto ni hacer suposiciones. Usa datos conocidos. No utilices texto entre corchetes ni frases como 'necesita verificación'. NO USES corchetes ni digas supongamos. Reduce el texto a 800 caracteres como máximo con lo que consideres más importante de cada apartado."""
+    prompt_usuario = fEres un analista deportivo profesional. Tu tarea es generar un análisis completo y detallado para un partido de fútbol entre {home} y {away}. Usa un estilo profesional y claro. Hoy es {datetime.now().strftime("%d/%m/%Y")}. El partido entre {home} y {away} se juega hoy. Usa estos datos estimados como base. Incluye: 1. 🧠 Análisis previo (nombre del torneo y fase si es conocido) 2. 🗞️ Historial entre ambos equipos (sugiere ventaja histórica con la temporada anterior y la nueva) 3. 📊 Estado de forma actual (goles a favor/en contra, posesión, racha, figuras clave) últimos 5 partidos 4. 🔎 Análisis táctico de ambos equipos (sistema, fortalezas, debilidades) 5. ⚽ Goleadores probables, según contexto 6. ⚠️ Comparativa de ventajas y desventajas (en plantilla, eficacia, defensa) (en texto plano) 7. qué jugadores van a ser convocados, lesiones y si todo esto va a influir en el modelo 8. 📈 Predicción final del resultado probable (según datos y forma posible puntuación resultado final equipos)  9. 📝 Conclusión sobre quién tiene más posibilidades de ganar Datos del modelo teniendo en cuenta lo que hemos obtenido de la respuesta del prompt junto con los datos: - Score estimado: {home} = {round(score_home, 2)} | {away} = {round(score_away, 2)} - Probabilidades: {home}: {prob_local:.1f}%, {away}: {prob_visit:.1f}%, Empate: {prob_draw:.1f}% Hazlo detallado, como si fuera un artículo publicado por un medio deportivo. y tienes que darme nombres de los jugadores reales y entrenadores acutales a la fecha, los históricos si que los tienes de este año buscalos por internet. de todo lo que digas tienen que ser datos extraidos de internet y asegurate de que esos datos estén y sean correctos. No debes dejar ningún campo incompleto ni hacer suposiciones. Usa datos conocidos. No utilices texto entre corchetes ni frases como 'necesita verificación'. NO USES corchetes ni digas supongamos. Reduce el texto a 800 caracteres como máximo con lo que consideres más importante de cada apartado.
 
     try:
         respuesta = client.models.generate_content(
@@ -575,7 +575,58 @@ def generar_analisis_completo_chatgpt(home, away, score_home, score_away, prob_l
         print(f"❌ Error al generar análisis con Gemini API: {e}")
         return "Análisis no disponible por el momento."
 
+"""
 
+def generar_analisis_completo_chatgpt(
+    home, away,
+    score_home, score_away,
+    prob_local, prob_visit, prob_draw,
+    xg_diff, goles_diff, posesion_diff,
+    historial
+):
+
+    prompt_usuario = f"""
+Eres un analista deportivo profesional.
+
+Genera un análisis del partido entre {home} y {away}.
+Usa EXCLUSIVAMENTE los datos proporcionados. No uses internet.
+
+Datos del modelo:
+- Score estimado: {home} {round(score_home,2)} | {away} {round(score_away,2)}
+- Probabilidades: {home} {prob_local:.1f}% | {away} {prob_visit:.1f}% | Empate {prob_draw:.1f}%
+- Diferencia xG: {round(xg_diff,2)}
+- Diferencia goles: {round(goles_diff,2)}
+- Diferencia posesión: {round(posesion_diff,2)}%
+- Historial: Local {historial.get("local_victories",{}).get("count",0)} |
+            Visitante {historial.get("away_wins",{}).get("count",0)} |
+            Empates {historial.get("draws",{}).get("count",0)}
+
+Estructura obligatoria:
+1. Análisis previo
+2. Historial
+3. Estado de forma
+4. Análisis táctico
+5. Comparativa
+6. Predicción final
+7. Conclusión
+
+Máximo 400 caracteres.
+No inventes jugadores.
+No uses datos externos.
+No uses corchetes.
+Estilo artículo deportivo profesional.
+"""
+
+    try:
+        respuesta = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt_usuario]
+        )
+        return respuesta.text
+
+    except Exception as e:
+        print(f"Error generando análisis: {e}")
+        return "Análisis no disponible."
 
 def obtener_odds(liga_sport_key):
     api_key = get_valid_odds_api_key()
@@ -904,7 +955,7 @@ def predicciones(liga):
                     empates_recientes = contar_empates_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     historial = historial_h2h(API_KEY_ALLSPORTS, home_id, away_id)
                     if odds and is_today_or_tomorrow(fecha):
-                        analysis = generar_analisis_completo_chatgpt(home, away, score_local, score_visit, prob_local, prob_visit, prob_empate) if odds else ""
+                        analysis = generar_analisis_completo_chatgpt(home, away,score_local, score_visit,prob_local, prob_visit, prob_empate,xg_diff, goles_diff, posesion_diff,historial) if odds else ""
                 else:
                     empates_recientes = 0  
                     historial = {"local_victories": 0, "away_wins": 0, "draws": 0}
